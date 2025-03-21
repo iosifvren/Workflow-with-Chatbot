@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow with Bot</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #000; 
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+        svg {
+            background-color: #000; 
+            border-radius: 8px;
+        }
+        .node circle {
+            stroke: #00FF00; 
+            stroke-width: 2px;
+            fill: #000; 
+            transition: transform 0.2s ease;
+        }
+        .node circle:hover {
+            transform: scale(1.2);
+        }
+        .node text {
+            font-size: 12px;
+            fill: #FFF; 
+        }
+        .link {
+            stroke: #00BFFF; 
+            stroke-width: 2px;
+            fill: none;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: #00FF00; 
+            border: 1px solid #00BFFF; 
+            padding: 5px 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            font-size: 12px;
+            color: #000; 
+            display: none;
+        }
+        .note-box {
+            margin-top: 20px;
+            padding: 10px;
+            width: 300px;
+            min-height: 50px;
+            border: 1px solid #00BFFF; 
+            border-radius: 4px;
+            background-color: #00FF00; 
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            font-size: 14px;
+            color: #000; 
+            text-align: center;
+        }
+        .chatbot {
+            margin-top: 20px;
+            width: 300px;
+            border: 1px solid #00BFFF; 
+            border-radius: 4px;
+            background-color: #FFF; 
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            font-size: 14px;
+            color: #000; 
+        }
+        .chatbot input {
+            width: 100%;
+            padding: 5px;
+            margin-top: 10px;
+            border: 1px solid #00BFFF;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <svg width="1000" height="600"></svg>
+    <div class="tooltip"></div>
+    <div class="note-box" id="noteBox">Click on a node to see details here</div>
+    <div class="chatbot">
+        <div id="chatbotResponse">I'm Alex Chatbot!</div>
+        <input type="text" id="chatbotInput" placeholder="Type your question here..." />
+    </div>
+    <script>
+        const data = {
+            name: "Data Workflow",
+            children: [
+                { name: "Data Processing", description: "Process raw data into usable formats." },
+                { name: "Data Cleaning", description: "Remove inconsistencies and errors in data." },
+                { name: "Data Warehouse", description: "Store structured data for analysis." },
+                { name: "ELT", description: "Extract, Load, and Transform data." },
+                { name: "ETL", description: "Extract, Transform, and Load data." },
+                { name: "ELTL", description: "Enhanced ELT process with additional steps." },
+                { name: "Data Visualization", description: "Create visual representations of data." }
+            ]
+        };
+
+        const width = 1000, height = 600;
+        const svg = d3.select("svg").attr("width", width).attr("height", height);
+        const g = svg.append("g").attr("transform", "translate(50,50)");
+
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 2])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        const root = d3.hierarchy(data);
+        const treeLayout = d3.tree().size([width - 100, height - 100]);
+        treeLayout(root);
+
+        g.selectAll(".link")
+            .data(root.links())
+            .enter()
+            .append("path")
+            .attr("class", "link")
+            .attr("d", d3.linkHorizontal()
+                .x(d => d.x)
+                .y(d => d.y)
+            )
+            .attr("stroke-opacity", 0)
+            .transition()
+            .duration(500)
+            .attr("stroke-opacity", 1);
+
+        const nodes = g.selectAll(".node")
+            .data(root.descendants())
+            .enter()
+            .append("g")
+            .attr("class", "node")
+            .attr("transform", d => `translate(${d.x},${d.y})`)
+            .on("click", (event, d) => {
+                event.stopPropagation();
+
+                d3.select("#noteBox").text(`You selected: ${d.data.name}`);
+            });
+
+        nodes.append("circle")
+            .attr("r", 10)
+            .attr("fill", "#000") 
+            .on("mouseover", function (event, d) {
+                d3.select(this).attr("fill", "#00FF00"); 
+                tooltip.style("display", "block")
+                    .html(`<strong>${d.data.name}</strong>`);
+            })
+            .on("mousemove", (event) => {
+                tooltip.style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY + 10) + "px");
+            })
+            .on("mouseout", function (event, d) {
+                d3.select(this).attr("fill", "#000"); 
+                tooltip.style("display", "none");
+            });
+
+        nodes.append("text")
+            .attr("dy", -15)
+            .attr("text-anchor", "middle")
+            .text(d => d.data.name);
+
+        svg.on("click", () => {
+            nodes.select("text").text(d => d.data.name);
+            d3.select("#noteBox").text("Click on a node to see details here");
+        });
+
+        const tooltip = d3.select(".tooltip");
+
+        const chatbotInput = document.getElementById("chatbotInput");
+        const chatbotResponse = document.getElementById("chatbotResponse");
+        const chatbotContainer = document.querySelector(".chatbot");
+        const chatHistory = []; 
+
+        function renderChatHistory() {
+        chatbotResponse.innerHTML = ""; 
+        chatHistory.forEach((entry, index) => {
+            const messageDiv = document.createElement("div");
+            messageDiv.className = "chat-message";
+            messageDiv.innerHTML = `
+                <span>${entry}</span>
+                <button onclick="editMessage(${index})">Edit</button>
+                <button onclick="deleteMessage(${index})">Delete</button>
+            `;
+            chatbotResponse.appendChild(messageDiv);
+        });
+    }
+
+        function editMessage(index) {
+        const newMessage = prompt("Edit your message:", chatHistory[index]);
+        if (newMessage !== null) {
+            chatHistory[index] = newMessage;
+            renderChatHistory();
+        }
+    }
+
+        function deleteMessage(index) {
+        chatHistory.splice(index, 1);
+        renderChatHistory();
+    }
+
+    function saveChatHistory() {
+        const blob = new Blob([chatHistory.join("\n")], { type: "text/plain" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "chat_history.txt";
+        a.click();
+    }
+
+    chatbotInput.addEventListener("keypress", (event) => {
+        if (event.key === "Enter") {
+            const query = chatbotInput.value.toLowerCase();
+            chatbotInput.value = "";
+
+            let response = "I don't understand your question. Please ask about a specific node.";
+            data.children.forEach(child => {
+                if (query.includes(child.name.toLowerCase())) {
+                    response = `About ${child.name}: ${child.description}`;
+                }
+            });
+
+            chatHistory.push(`You: ${query}`);
+            chatHistory.push(`Bot: ${response}`);
+            renderChatHistory();
+        }
+    });
+
+    document.addEventListener("click", (event) => {
+        if (!chatbotContainer.contains(event.target)) {
+            chatbotInput.value = ""; 
+            chatbotResponse.innerHTML = "I'm Alex Chatbot!"; 
+            chatHistory.length = 0; 
+        }
+    });
+
+    const saveButton = document.createElement("button");
+    saveButton.textContent = "Save Chat History";
+    saveButton.style.marginTop = "10px";
+    saveButton.addEventListener("click", saveChatHistory);
+    chatbotContainer.appendChild(saveButton);
+    </script>
+</body>
+</html>
